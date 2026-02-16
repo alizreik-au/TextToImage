@@ -1,0 +1,17 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "TextToImage",
+	"Description": "Render typed text into an image texture.",
+	"Category": "Other",
+	"CreatedBy": "Ali Zreik",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false, "Modules": [{"Name": "TextToImage", "Type": "Runtime", "LoadingPhase": "Default"}]
+}
