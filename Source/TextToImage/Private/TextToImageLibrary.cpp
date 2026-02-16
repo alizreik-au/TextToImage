@@ -46,12 +46,14 @@ namespace
 		return FontPath;
 	}
 
-	/** Core render: fill RGBA buffer (W*H*4), white text on transparent. Returns true on success. */
+	/** Core render: fill RGBA buffer (W*H*4). TextColor/BackgroundColor: alpha 0 background = transparent. */
 	bool RenderTextToRgba(
 		const TArray<uint8>& FontBuffer,
 		const FString& Text,
 		int32 W,
 		int32 H,
+		FLinearColor TextColor,
+		FLinearColor BackgroundColor,
 		TArray<uint8>& OutRgba)
 	{
 		if (FontBuffer.Num() == 0 || Text.IsEmpty() || W <= 0 || H <= 0) return false;
@@ -63,7 +65,21 @@ namespace
 			return false;
 		}
 
-		OutRgba.SetNumZeroed(W * H * 4);
+		OutRgba.SetNumUninitialized(W * H * 4);
+		const uint8 Br = Clamp255(FMath::RoundToInt(BackgroundColor.R * 255.f));
+		const uint8 Bg = Clamp255(FMath::RoundToInt(BackgroundColor.G * 255.f));
+		const uint8 Bb = Clamp255(FMath::RoundToInt(BackgroundColor.B * 255.f));
+		const uint8 Ba = Clamp255(FMath::RoundToInt(BackgroundColor.A * 255.f));
+		for (int32 i = 0; i < W * H; ++i)
+		{
+			OutRgba[i * 4 + 0] = Br;
+			OutRgba[i * 4 + 1] = Bg;
+			OutRgba[i * 4 + 2] = Bb;
+			OutRgba[i * 4 + 3] = Ba;
+		}
+		const int32 Tr = Clamp255(FMath::RoundToInt(TextColor.R * 255.f));
+		const int32 Tg = Clamp255(FMath::RoundToInt(TextColor.G * 255.f));
+		const int32 Tb = Clamp255(FMath::RoundToInt(TextColor.B * 255.f));
 
 		const float NominalPixelHeight = 64.0f;
 		float scale = stbtt_ScaleForPixelHeight(&font, NominalPixelHeight);
@@ -130,9 +146,9 @@ namespace
 						unsigned char dstA = img[idx + 3];
 						int outA = srcA + (dstA * (255 - srcA) + 127) / 255;
 						int dstR = img[idx + 0], dstG = img[idx + 1], dstB = img[idx + 2];
-						int outR = (srcA * 255 + dstR * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
-						int outG = (srcA * 255 + dstG * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
-						int outB = (srcA * 255 + dstB * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
+						int outR = (srcA * Tr + dstR * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
+						int outG = (srcA * Tg + dstG * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
+						int outB = (srcA * Tb + dstB * dstA * (255 - srcA) / 255) / (outA ? outA : 1);
 						img[idx + 0] = Clamp255(outR);
 						img[idx + 1] = Clamp255(outG);
 						img[idx + 2] = Clamp255(outB);
@@ -173,21 +189,10 @@ namespace
 
 bool UTextToImageLibrary::RenderTextToTexture(const FString& FontPath, const FString& Text, int32 Size, UTexture2D*& OutTexture)
 {
-	OutTexture = nullptr;
-	FString Resolved = ResolveFontPath(FontPath);
-	TArray<uint8> FontBuffer;
-	if (!FFileHelper::LoadFileToArray(FontBuffer, *Resolved))
-	{
-		UE_LOG(LogTemp, Error, TEXT("TextToImage: Could not load font: %s"), *Resolved);
-		return false;
-	}
-
-	TArray<uint8> Rgba;
-	if (!RenderTextToRgba(FontBuffer, Text, Size, Size, Rgba)) return false;
-	return CreateTextureFromRgba(Size, Size, Rgba, OutTexture);
+	return RenderTextToTextureEx(FontPath, Text, Size, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), OutTexture);
 }
 
-bool UTextToImageLibrary::RenderTextToPng(const FString& FontPath, const FString& Text, int32 Size, const FString& OutputPngPath, UTexture2D*& OutTexture)
+bool UTextToImageLibrary::RenderTextToTextureEx(const FString& FontPath, const FString& Text, int32 Size, FLinearColor TextColor, FLinearColor BackgroundColor, UTexture2D*& OutTexture)
 {
 	OutTexture = nullptr;
 	FString Resolved = ResolveFontPath(FontPath);
@@ -197,11 +202,29 @@ bool UTextToImageLibrary::RenderTextToPng(const FString& FontPath, const FString
 		UE_LOG(LogTemp, Error, TEXT("TextToImage: Could not load font: %s"), *Resolved);
 		return false;
 	}
-
 	TArray<uint8> Rgba;
-	if (!RenderTextToRgba(FontBuffer, Text, Size, Size, Rgba)) return false;
+	if (!RenderTextToRgba(FontBuffer, Text, Size, Size, TextColor, BackgroundColor, Rgba)) return false;
+	return CreateTextureFromRgba(Size, Size, Rgba, OutTexture);
+}
 
-	// Write PNG (stbi expects filename; use TCHAR to UTF8 for path)
+bool UTextToImageLibrary::RenderTextToPng(const FString& FontPath, const FString& Text, int32 Size, const FString& OutputPngPath, UTexture2D*& OutTexture)
+{
+	return RenderTextToPngEx(FontPath, Text, Size, OutputPngPath, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), OutTexture);
+}
+
+bool UTextToImageLibrary::RenderTextToPngEx(const FString& FontPath, const FString& Text, int32 Size, const FString& OutputPngPath, FLinearColor TextColor, FLinearColor BackgroundColor, UTexture2D*& OutTexture)
+{
+	OutTexture = nullptr;
+	FString Resolved = ResolveFontPath(FontPath);
+	TArray<uint8> FontBuffer;
+	if (!FFileHelper::LoadFileToArray(FontBuffer, *Resolved))
+	{
+		UE_LOG(LogTemp, Error, TEXT("TextToImage: Could not load font: %s"), *Resolved);
+		return false;
+	}
+	TArray<uint8> Rgba;
+	if (!RenderTextToRgba(FontBuffer, Text, Size, Size, TextColor, BackgroundColor, Rgba)) return false;
+
 	FTCHARToUTF8 PathConv(*OutputPngPath);
 	int ok = stbi_write_png(PathConv.Get(), Size, Size, 4, Rgba.GetData(), Size * 4);
 	if (!ok)
@@ -210,6 +233,5 @@ bool UTextToImageLibrary::RenderTextToPng(const FString& FontPath, const FString
 		return false;
 	}
 	UE_LOG(LogTemp, Log, TEXT("TextToImage: Wrote %s (%dx%d)"), *OutputPngPath, Size, Size);
-
 	return CreateTextureFromRgba(Size, Size, Rgba, OutTexture);
 }

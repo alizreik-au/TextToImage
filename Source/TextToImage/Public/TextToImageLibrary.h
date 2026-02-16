@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Engine/Texture2D.h"
+#include "Math/Color.h"
 #include "TextToImageLibrary.generated.h"
 
 UCLASS(meta = (DisplayName = "Text To Image"))
@@ -43,5 +44,29 @@ public:
 		const FString& Text,
 		int32 Size,
 		const FString& OutputPngPath,
+		UTexture2D*& OutTexture);
+
+	/**
+	 * Extended render with text and background color. Used by editor and Blueprint.
+	 * @param BackgroundColor Alpha 0 = transparent background.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "TextToImage", meta = (DisplayName = "Render Text To Texture (with Colors)"))
+	static bool RenderTextToTextureEx(
+		const FString& FontPath,
+		const FString& Text,
+		int32 Size,
+		FLinearColor TextColor,
+		FLinearColor BackgroundColor,
+		UTexture2D*& OutTexture);
+
+	/** Extended render to PNG with text and background color. */
+	UFUNCTION(BlueprintCallable, Category = "TextToImage", meta = (DisplayName = "Render Text To PNG (with Colors)"))
+	static bool RenderTextToPngEx(
+		const FString& FontPath,
+		const FString& Text,
+		int32 Size,
+		const FString& OutputPngPath,
+		FLinearColor TextColor,
+		FLinearColor BackgroundColor,
 		UTexture2D*& OutTexture);
 };

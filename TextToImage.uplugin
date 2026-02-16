@@ -13,5 +13,5 @@
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
-	"Installed": false, "Modules": [{"Name": "TextToImage", "Type": "Runtime", "LoadingPhase": "Default"}]
+	"Installed": false, "Modules": [{"Name": "TextToImage", "Type": "Runtime", "LoadingPhase": "Default"}, {"Name": "TextToImageEditor", "Type": "Editor", "LoadingPhase": "PostEngineInit"}]
 }
